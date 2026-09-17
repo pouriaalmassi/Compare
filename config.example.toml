@@ -1,0 +1,76 @@
+# Compare Configuration
+# Copy this file to `config.toml` in one of the following locations:
+#   - Current directory (.)
+#   - ~/.config/compare/config.toml (or ~/.config/diffitrust/config.toml)
+#   - ~/Library/Application Support/Compare/config.toml
+#   - Directory specified by $COMPARE_CONFIG_DIR (or $DIFFITRUST_CONFIG_DIR)
+
+# -------------------------------------------------------------------
+# Automatic OS Light / Dark Theme Switching (Recommended)
+# -------------------------------------------------------------------
+# Compare automatically toggles between your light and dark theme
+# options based on your operating system appearance settings.
+# Both built-in preset names and custom theme files in `themes/` can be used.
+
+light_theme = "kaleidescope"
+dark_theme = "Nord"
+
+# Alternatively, you can use the [theme] table syntax:
+# [theme]
+# light = "kaleidescope"
+# dark = "Nord"
+
+# -------------------------------------------------------------------
+# Line Wrapping & Font Size Settings
+# -------------------------------------------------------------------
+# Wrap long lines in the diff viewer (defaults to true).
+# Set to false to disable wrapping and use horizontal scrolling instead.
+wrap_lines = true
+
+# Font size for file diff content and line numbers (defaults to 13.0).
+# Can be dynamically zoomed with ⌘+/⌘- (or Ctrl+/Ctrl- on Win/Linux),
+# and reset to this configured size with ⌘0 / Ctrl 0.
+font_size = 13.0
+
+
+# -------------------------------------------------------------------
+# Single Preset / Fallback
+# -------------------------------------------------------------------
+# If you only specify a single preset or theme, it will be used regardless
+# of OS mode:
+# preset = "Nord"
+
+# Built-in presets:
+#   "Light", "Dark", "Dracula", "Nord", "SolarizedLight", "SolarizedDark",
+#   "GruvboxLight", "GruvboxDark", "CatppuccinLatte", "CatppuccinFrappe",
+#   "CatppuccinMacchiato", "CatppuccinMocha", "TokyoNight", "TokyoNightStorm",
+#   "TokyoNightLight", "KanagawaWave", "KanagawaDragon", "KanagawaLotus",
+#   "Moonfly", "Nightfly", "Oxocarbon", "Ferra"
+
+# -------------------------------------------------------------------
+# Option 2: User-defined theme file
+# -------------------------------------------------------------------
+# You can define custom themes or override presets by placing <name>.toml
+# files in the config directory or in a `themes/` subdirectory.
+# For example:
+# preset = "oceanic-diff"
+
+# -------------------------------------------------------------------
+# Option 3: Customize diff colors directly
+# -------------------------------------------------------------------
+# Diff colors can be fully customized (not always just red and green!).
+# All colors accept hex values: #RGB, #RGBA, #RRGGBB, #RRGGBBAA
+
+# [diff]
+# delete_bg = "#3a1520"          # Background for deleted lines
+# delete_highlight = "#5a2030"   # Highlight for intra-line deletion spans
+# delete_line_num = "#f38ba8"    # Line number text color for deletions
+# insert_bg = "#183226"          # Background for inserted lines
+# insert_highlight = "#254e3c"   # Highlight for intra-line insertion spans
+# insert_line_num = "#a6e3a1"    # Line number text color for insertions
+# equal_line_num = "#6c7086"     # Line number text color for unchanged lines
+# text = "#cdd6f4"               # Diff text color
+# background = "#1e1e2e"         # Window / diff background
+# subheader_bg = "#181825"       # Subheader / column header background
+# divider = "#313244"            # Border & divider line color
+# empty_cell_bg = "#181825"      # Placeholder cell background

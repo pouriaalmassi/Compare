@@ -1,0 +1,19 @@
+# Custom theme with soft mint green insertions and lavender purple deletions (inspired by Kaleidoscope)
+name = "Kaleidoscope"
+based_on = "Light"
+
+[diff]
+delete_bg = "#f2edfc"
+delete_highlight = "#ddcdf8"
+delete_line_num = "#79777f"
+
+insert_bg = "#e5f7e7"
+insert_highlight = "#b6e8be"
+insert_line_num = "#727c73"
+
+equal_line_num = "#808080"
+text = "#272727"
+background = "#ffffff"
+subheader_bg = "#ffffff"
+divider = "#e6e6e6"
+empty_cell_bg = "#ffffff"

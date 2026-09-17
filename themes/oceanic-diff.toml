@@ -1,0 +1,18 @@
+# Custom theme with cyan/teal insertions and plum/crimson deletions
+name = "Oceanic Diff"
+based_on = "Nord"
+
+[diff]
+delete_bg = "#3b222e"
+delete_highlight = "#5c2e3d"
+delete_line_num = "#bf616a"
+
+insert_bg = "#1f3a3d"
+insert_highlight = "#2b565a"
+insert_line_num = "#88c0d0"
+
+equal_line_num = "#4c566a"
+text = "#eceff4"
+background = "#2e3440"
+subheader_bg = "#272c36"
+divider = "#3b4252"

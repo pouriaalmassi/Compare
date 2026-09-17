@@ -1,0 +1,73 @@
+name: Build and Package
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: compare-linux-x86_64
+            binary_path: target/release/diffitrust
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: compare-windows-x86_64.exe
+            binary_path: target/release/diffitrust.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: Compare-macos
+            is_macos: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libfontconfig1-dev pkg-config libwayland-dev libgtk-3-dev
+
+      - name: Build (Linux / Windows)
+        if: "!matrix.is_macos"
+        run: cargo build --release --locked
+
+      - name: Build (macOS DMG & App)
+        if: matrix.is_macos
+        run: |
+          chmod +x ./scripts/build_macos.sh
+          ./scripts/build_macos.sh
+
+      - name: Upload Linux binary
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: compare-linux-x86_64
+          path: target/release/diffitrust
+
+      - name: Upload Windows executable
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: compare-windows-x86_64
+          path: target/release/diffitrust.exe
+
+      - name: Upload macOS DMG
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Compare-macOS-DMG
+          path: dist/Compare.dmg
