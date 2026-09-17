@@ -2,6 +2,10 @@
 
 A fast, lightweight, and modern side-by-side graphical diff tool built in Rust using [Iced](https://github.com/iced-rs/iced).
 
+![Compare - Dark Theme](assets/screenshots/dark.png)
+
+![Compare - Light Theme](assets/screenshots/light.png)
+
 ## Features
 
 - **Side-by-Side Comparison**: Intuitive 2-column view with intra-line character-level diff highlighting.
