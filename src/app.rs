@@ -69,6 +69,7 @@ pub enum Message {
     FileHovered,
     FilesHoveredLeft,
     ChooseFiles,
+    FilesChosen(Vec<PathBuf>),
     ClearAll,
     SwapSides,
     ToggleWrapLines(bool),
@@ -108,7 +109,7 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::DockFilesDropped(paths) => {
+            Message::DockFilesDropped(paths) | Message::FilesChosen(paths) => {
                 self.is_hovering = false;
                 self.is_new_drop_sequence = false;
                 if paths.len() >= 2 {
@@ -157,9 +158,7 @@ impl App {
                     .set_title("Choose text files to compare")
                     .pick_files()
                 {
-                    for path in paths {
-                        self.load_file(path);
-                    }
+                    return self.update(Message::FilesChosen(paths));
                 }
                 if self.file_1.is_some() || self.file_2.is_some() {
                     Self::maximize_window()
@@ -414,6 +413,62 @@ mod tests {
         ]));
         assert_eq!(app.file_1.as_ref().unwrap().name, "Cargo.lock");
         assert_ne!(app.file_1.as_ref().unwrap().name, original_name);
+    }
+
+    #[test]
+    fn test_files_chosen_replaces_existing_pair() {
+        let mut app = App::default();
+        let _ = app.update(Message::DockFilesDropped(vec![
+            PathBuf::from("Cargo.toml"),
+            PathBuf::from("Cargo.lock"),
+        ]));
+
+        let _ = app.update(Message::FilesChosen(vec![
+            PathBuf::from("README.md"),
+            PathBuf::from("config.example.toml"),
+        ]));
+
+        assert_eq!(app.file_1.as_ref().unwrap().path, PathBuf::from("README.md"));
+        assert_eq!(
+            app.file_2.as_ref().unwrap().path,
+            PathBuf::from("config.example.toml")
+        );
+        let expected = compute_diff(
+            &app.file_1.as_ref().unwrap().content,
+            &app.file_2.as_ref().unwrap().content,
+        );
+        assert_eq!(
+            app.diff_data.as_ref().unwrap().differ_count,
+            expected.differ_count
+        );
+        assert_eq!(app.diff_data.as_ref().unwrap().rows.len(), expected.rows.len());
+    }
+
+    #[test]
+    fn test_single_file_chosen_preserves_left_file() {
+        let mut app = App::default();
+        let _ = app.update(Message::FilesChosen(vec![PathBuf::from("Cargo.toml")]));
+        assert!(app.file_2.is_none());
+
+        let _ = app.update(Message::FilesChosen(vec![PathBuf::from("Cargo.lock")]));
+        assert!(app.diff_data.is_some());
+
+        let _ = app.update(Message::FilesChosen(vec![PathBuf::from("README.md")]));
+        assert_eq!(app.file_1.as_ref().unwrap().path, PathBuf::from("Cargo.toml"));
+        assert_eq!(app.file_2.as_ref().unwrap().path, PathBuf::from("README.md"));
+        assert!(app.diff_data.is_some());
+    }
+
+    #[test]
+    fn test_files_chosen_uses_first_two_files() {
+        let mut app = App::default();
+        let _ = app.update(Message::FilesChosen(vec![
+            PathBuf::from("Cargo.toml"),
+            PathBuf::from("Cargo.lock"),
+            PathBuf::from("README.md"),
+        ]));
+        assert_eq!(app.file_1.as_ref().unwrap().path, PathBuf::from("Cargo.toml"));
+        assert_eq!(app.file_2.as_ref().unwrap().path, PathBuf::from("Cargo.lock"));
     }
 
     #[test]
