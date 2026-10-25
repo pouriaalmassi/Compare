@@ -21,16 +21,26 @@ dark_theme = "Nord"
 # dark = "Nord"
 
 # -------------------------------------------------------------------
-# Line Wrapping & Font Size Settings
+# Line Wrapping & Font Settings
 # -------------------------------------------------------------------
 # Wrap long lines in the diff viewer (defaults to true).
 # Set to false to disable wrapping and use horizontal scrolling instead.
 wrap_lines = true
 
+# Show space dots and tab arrows: "off", "changed" (default), or "all".
+# Can also be changed with the toolbar Whitespace selector.
+whitespace = "changed"
+# Tab stops, in columns (default 4; clamped to 1–16).
+tab_width = 4
+
 # Font size for file diff content and line numbers (defaults to 13.0).
 # Can be dynamically zoomed with ⌘+/⌘- (or Ctrl+/Ctrl- on Win/Linux),
 # and reset to this configured size with ⌘0 / Ctrl 0.
 font_size = 13.0
+
+# Installed font family for diff text and line numbers (restart to apply).
+# Omit this or use "monospace" for the system monospace default.
+# font_family = "Menlo"
 
 
 # -------------------------------------------------------------------

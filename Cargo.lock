@@ -783,6 +783,7 @@ dependencies = [
  "serde",
  "similar",
  "toml",
+ "unicode-width",
 ]
 
 [[package]]

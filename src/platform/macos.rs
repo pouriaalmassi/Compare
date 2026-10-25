@@ -2,8 +2,8 @@ use futures::channel::mpsc::{unbounded, UnboundedSender};
 use futures::Stream;
 use iced::Subscription;
 use objc::runtime::{
-    class_addMethod, class_getInstanceMethod, method_setImplementation, Class, Imp, Method,
-    Object, Sel, BOOL, YES,
+    class_addMethod, class_getInstanceMethod, method_setImplementation, Class, Imp, Method, Object,
+    Sel, BOOL, YES,
 };
 use objc::{msg_send, sel, sel_impl};
 use std::ffi::{c_char, CStr, CString};
@@ -152,20 +152,18 @@ unsafe fn add_open_file_methods(cls: *mut Class) {
     class_addMethod(
         cls,
         sel!(application:openFiles:),
-        std::mem::transmute::<
-            unsafe extern "C" fn(*mut Object, Sel, *mut Object, *mut Object),
-            Imp,
-        >(open_files_imp),
+        std::mem::transmute::<unsafe extern "C" fn(*mut Object, Sel, *mut Object, *mut Object), Imp>(
+            open_files_imp,
+        ),
         types.as_ptr(),
     );
 
     class_addMethod(
         cls,
         sel!(application:openURLs:),
-        std::mem::transmute::<
-            unsafe extern "C" fn(*mut Object, Sel, *mut Object, *mut Object),
-            Imp,
-        >(open_urls_imp),
+        std::mem::transmute::<unsafe extern "C" fn(*mut Object, Sel, *mut Object, *mut Object), Imp>(
+            open_urls_imp,
+        ),
         types.as_ptr(),
     );
 
@@ -205,10 +203,9 @@ pub fn init() {
             if !method.is_null() {
                 let orig_imp = method_setImplementation(
                     method as *mut Method,
-                    std::mem::transmute::<
-                        unsafe extern "C" fn(*mut Object, Sel, *mut Object),
-                        Imp,
-                    >(swizzled_set_delegate),
+                    std::mem::transmute::<unsafe extern "C" fn(*mut Object, Sel, *mut Object), Imp>(
+                        swizzled_set_delegate,
+                    ),
                 );
                 ORIGINAL_SET_DELEGATE = Some(std::mem::transmute::<
                     Imp,

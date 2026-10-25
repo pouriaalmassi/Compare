@@ -1,7 +1,9 @@
 use iced::mouse;
 use iced::widget::canvas::{self, Canvas, Frame, Geometry, LineDash, Path, Stroke};
 use iced::widget::{button, center, column, container, stack, svg, text};
-use iced::{font, Alignment, Border, Color, Element, Length, Point, Rectangle, Renderer, Size, Theme};
+use iced::{
+    font, Alignment, Border, Color, Element, Length, Point, Rectangle, Renderer, Size, Theme,
+};
 
 use crate::app::Message;
 use crate::theme::{blend, DiffTheme};
@@ -134,7 +136,7 @@ pub fn view_empty_state<'a>(
     let btn_border = diff_theme.button_border;
 
     let choose_button = button(
-        text("Choose Files...")
+        text("Choose Files")
             .size(13)
             .font(font::Font {
                 weight: font::Weight::Medium,
@@ -187,12 +189,9 @@ pub fn view_empty_state<'a>(
     };
 
     container(
-        stack![
-            canvas_border,
-            center_content,
-        ]
-        .width(Length::Fill)
-        .height(Length::Fill),
+        stack![canvas_border, center_content,]
+            .width(Length::Fill)
+            .height(Length::Fill),
     )
     .width(Length::Fill)
     .height(Length::Fill)

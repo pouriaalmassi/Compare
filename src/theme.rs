@@ -30,6 +30,7 @@ pub struct AppTheme {
     pub iced_theme: Theme,
     pub diff: DiffTheme,
     pub is_dark: bool,
+    pub warning: Option<String>,
 }
 
 impl Default for AppTheme {
@@ -71,6 +72,10 @@ pub struct ConfigFile {
     pub wrap_lines: Option<bool>,
     /// Optional font size for diff content and line numbers (defaults to 13.0)
     pub font_size: Option<f32>,
+    /// Installed font family for diff text and line numbers; defaults to monospace.
+    pub font_family: Option<String>,
+    pub whitespace: Option<crate::whitespace::WhitespaceMode>,
+    pub tab_width: Option<usize>,
 }
 
 impl ConfigFile {
@@ -121,34 +126,74 @@ pub struct ThemeFile {
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct PaletteConfig {
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub background: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub text: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub primary: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub success: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub danger: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct DiffConfig {
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub delete_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub delete_highlight: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub delete_line_num: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub insert_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub insert_highlight: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub insert_line_num: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub equal_line_num: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub text: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub background: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub subheader_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub divider: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub empty_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub empty_cell_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub button_bg: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_color")]
     pub button_border: Option<String>,
+}
+
+fn deserialize_color<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    let color = Option::<String>::deserialize(deserializer)?;
+    if let Some(value) = &color {
+        parse_hex_color(value).map_err(serde::de::Error::custom)?;
+    }
+    Ok(color)
+}
+
+fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|err| format!("Could not read {}: {err}", path.display()))?;
+    toml::from_str(&content)
+        .map_err(|err| format!("Invalid configuration in {}: {err}", path.display()))
 }
 
 pub fn parse_hex_color(hex: &str) -> Result<Color, String> {
     let s = hex.trim().trim_start_matches('#');
+    if !s.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!("Invalid hex color: {hex:?}"));
+    }
     match s.len() {
         3 => {
             let r = u8::from_str_radix(&s[0..1].repeat(2), 16).map_err(|e| e.to_string())?;
@@ -235,8 +280,18 @@ pub fn config_dirs() -> Vec<PathBuf> {
         let home_path = PathBuf::from(home);
         dirs.push(home_path.join(".config").join("compare"));
         dirs.push(home_path.join(".config").join("diffitrust"));
-        dirs.push(home_path.join("Library").join("Application Support").join("Compare"));
-        dirs.push(home_path.join("Library").join("Application Support").join("DiffiTrust"));
+        dirs.push(
+            home_path
+                .join("Library")
+                .join("Application Support")
+                .join("Compare"),
+        );
+        dirs.push(
+            home_path
+                .join("Library")
+                .join("Application Support")
+                .join("DiffiTrust"),
+        );
     }
     if let Ok(appdata) = std::env::var("APPDATA") {
         dirs.push(PathBuf::from(&appdata).join("Compare"));
@@ -369,66 +424,142 @@ pub fn default_diff_theme(theme: &Theme) -> DiffTheme {
 }
 
 pub fn apply_diff_overrides(mut diff: DiffTheme, overrides: &DiffConfig) -> DiffTheme {
-    if let Some(c) = overrides.delete_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .delete_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.delete_bg = c;
     }
-    if let Some(c) = overrides.delete_highlight.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .delete_highlight
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.delete_highlight = c;
     }
-    if let Some(c) = overrides.delete_line_num.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .delete_line_num
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.delete_line_num = c;
     }
-    if let Some(c) = overrides.insert_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .insert_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.insert_bg = c;
     }
-    if let Some(c) = overrides.insert_highlight.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .insert_highlight
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.insert_highlight = c;
     }
-    if let Some(c) = overrides.insert_line_num.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .insert_line_num
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.insert_line_num = c;
     }
-    if let Some(c) = overrides.equal_line_num.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .equal_line_num
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.equal_line_num = c;
     }
-    if let Some(c) = overrides.text.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .text
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.text = c;
     }
-    if let Some(c) = overrides.background.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .background
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.background = c;
         diff.empty_bg = c;
     }
-    if let Some(c) = overrides.subheader_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .subheader_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.subheader_bg = c;
     }
-    if let Some(c) = overrides.divider.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .divider
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.divider = c;
     }
-    if let Some(c) = overrides.empty_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .empty_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.empty_bg = c;
     }
-    if let Some(c) = overrides.empty_cell_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .empty_cell_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.empty_cell_bg = c;
     }
-    if let Some(c) = overrides.button_bg.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .button_bg
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.button_bg = c;
     }
-    if let Some(c) = overrides.button_border.as_deref().and_then(|s| parse_hex_color(s).ok()) {
+    if let Some(c) = overrides
+        .button_border
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+    {
         diff.button_border = c;
     }
     diff
 }
 
-fn build_custom_theme(
-    name: String,
-    base_theme: &Theme,
-    palette_cfg: &PaletteConfig,
-) -> Theme {
+fn build_custom_theme(name: String, base_theme: &Theme, palette_cfg: &PaletteConfig) -> Theme {
     let base_palette = base_theme.palette();
-    let bg = palette_cfg.background.as_deref().and_then(|s| parse_hex_color(s).ok()).unwrap_or(base_palette.background);
-    let txt = palette_cfg.text.as_deref().and_then(|s| parse_hex_color(s).ok()).unwrap_or(base_palette.text);
-    let pri = palette_cfg.primary.as_deref().and_then(|s| parse_hex_color(s).ok()).unwrap_or(base_palette.primary);
-    let suc = palette_cfg.success.as_deref().and_then(|s| parse_hex_color(s).ok()).unwrap_or(base_palette.success);
-    let dan = palette_cfg.danger.as_deref().and_then(|s| parse_hex_color(s).ok()).unwrap_or(base_palette.danger);
+    let bg = palette_cfg
+        .background
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+        .unwrap_or(base_palette.background);
+    let txt = palette_cfg
+        .text
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+        .unwrap_or(base_palette.text);
+    let pri = palette_cfg
+        .primary
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+        .unwrap_or(base_palette.primary);
+    let suc = palette_cfg
+        .success
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+        .unwrap_or(base_palette.success);
+    let dan = palette_cfg
+        .danger
+        .as_deref()
+        .and_then(|s| parse_hex_color(s).ok())
+        .unwrap_or(base_palette.danger);
 
     let palette = iced::theme::Palette {
         background: bg,
@@ -480,10 +611,11 @@ pub fn resolve_theme(
     config: &ConfigFile,
     config_dir: &Path,
 ) -> AppTheme {
+    let mut warning = None;
     // 1. Check if there is a user-defined theme file matching `theme_query`
     if let Some(theme_file_path) = find_theme_file(theme_query, config_dir) {
-        if let Ok(content) = fs::read_to_string(&theme_file_path) {
-            if let Ok(theme_file) = toml::from_str::<ThemeFile>(&content) {
+        match read_toml::<ThemeFile>(&theme_file_path) {
+            Ok(theme_file) => {
                 let base_theme = theme_file
                     .based_on
                     .as_deref()
@@ -522,14 +654,16 @@ pub fn resolve_theme(
                     iced_theme: resolved_theme,
                     diff,
                     is_dark: is_dark_resolved,
+                    warning,
                 };
             }
+            Err(err) => warning = Some(err),
         }
     }
 
     // 2. Check if `theme_query` matches a built-in preset
-    let base_theme = parse_preset(theme_query)
-        .unwrap_or(if is_dark { Theme::Dark } else { Theme::Light });
+    let base_theme =
+        parse_preset(theme_query).unwrap_or(if is_dark { Theme::Dark } else { Theme::Light });
 
     let resolved_theme = if let Some(pal) = &config.palette {
         build_custom_theme(format!("{}-custom", theme_query), &base_theme, pal)
@@ -555,6 +689,7 @@ pub fn resolve_theme(
         iced_theme: resolved_theme,
         diff,
         is_dark: is_dark_resolved,
+        warning,
     }
 }
 
@@ -564,39 +699,116 @@ pub fn load_theme() -> AppTheme {
     load_theme_for_mode(is_dark)
 }
 
-/// Loads the application configuration according to `config.toml`.
-pub fn load_config() -> ConfigFile {
-    let (_config_dir, config_path_opt) = find_config_file();
-    if let Some(path) = config_path_opt {
-        fs::read_to_string(&path)
-            .ok()
-            .and_then(|content| toml::from_str::<ConfigFile>(&content).ok())
-            .unwrap_or_default()
-    } else {
-        ConfigFile::default()
-    }
+/// Read settings once and retain diagnostics for the application to display.
+pub fn load_settings(is_dark: bool) -> (ConfigFile, AppTheme) {
+    let (config_dir, config_path) = find_config_file();
+    load_settings_from(&config_dir, config_path.as_deref(), is_dark)
+}
+
+fn load_settings_from(
+    config_dir: &Path,
+    config_path: Option<&Path>,
+    is_dark: bool,
+) -> (ConfigFile, AppTheme) {
+    let result = config_path.map(read_toml::<ConfigFile>).transpose();
+    let (config, warning) = match result {
+        Ok(config) => (config.unwrap_or_default(), None),
+        Err(err) => (ConfigFile::default(), Some(err)),
+    };
+    let mut theme = resolve_theme(
+        &config.get_theme_name(is_dark),
+        is_dark,
+        &config,
+        config_dir,
+    );
+    theme.warning = match (warning, theme.warning) {
+        (Some(a), Some(b)) => Some(format!("{a}\n{b}")),
+        (a, b) => a.or(b),
+    };
+    (config, theme)
 }
 
 /// Loads the application theme for an explicit mode (true for dark, false for light).
 pub fn load_theme_for_mode(is_dark: bool) -> AppTheme {
-    let (config_dir, config_path_opt) = find_config_file();
-
-    let config = if let Some(path) = config_path_opt {
-        fs::read_to_string(&path)
-            .ok()
-            .and_then(|content| toml::from_str::<ConfigFile>(&content).ok())
-            .unwrap_or_default()
-    } else {
-        ConfigFile::default()
-    };
-
-    let theme_query = config.get_theme_name(is_dark);
-    resolve_theme(&theme_query, is_dark, &config, &config_dir)
+    load_settings(is_dark).1
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn whitespace_config_accepts_modes_and_tab_width() {
+        use crate::whitespace::WhitespaceMode;
+        for (name, mode) in [
+            ("off", WhitespaceMode::Off),
+            ("changed", WhitespaceMode::Changed),
+            ("all", WhitespaceMode::All),
+        ] {
+            let config: ConfigFile =
+                toml::from_str(&format!("whitespace = \"{name}\"\ntab_width = 8")).unwrap();
+            assert_eq!(config.whitespace, Some(mode));
+            assert_eq!(config.tab_width, Some(8));
+        }
+        assert!(toml::from_str::<ConfigFile>("whitespace = \"typo\"").is_err());
+        assert!(toml::from_str::<ConfigFile>("tab_width = -1").is_err());
+    }
+
+    #[test]
+    fn malformed_colors_return_errors_without_panicking() {
+        for color in ["€", "éa", "💥", "#€€", "#éabcdef", "#ggg", "#12"] {
+            assert!(parse_hex_color(color).is_err(), "{color}");
+        }
+    }
+
+    #[test]
+    fn invalid_colors_report_the_config_key() {
+        for section in ["diff", "diff_light", "diff_dark"] {
+            let config = format!("[{section}]\ndelete_bg = \"€\"\n");
+            let error = toml::from_str::<ConfigFile>(&config)
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("delete_bg"));
+            assert!(error.contains("Invalid hex color"));
+        }
+        assert!(toml::from_str::<ThemeFile>("[palette]\nbackground = \"oops\"").is_err());
+    }
+
+    #[test]
+    fn configuration_failures_include_path_and_use_defaults() {
+        let directory =
+            std::env::temp_dir().join(format!("compare_diagnostics_{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("config.toml");
+        for content in ["font_size = [", "[diff]\ndelete_bg = \"€\""] {
+            fs::write(&path, content).unwrap();
+            let (config, theme) = load_settings_from(&directory, Some(&path), true);
+            assert!(config.font_size.is_none());
+            assert_eq!(theme.name, "Dark");
+            let warning = theme.warning.unwrap();
+            assert!(warning.contains(path.to_str().unwrap()));
+            assert!(warning.contains("Invalid configuration"));
+        }
+        let missing = directory.join("missing.toml");
+        let (_, theme) = load_settings_from(&directory, Some(&missing), false);
+        assert!(theme.warning.unwrap().contains("Could not read"));
+        let (_, theme) = load_settings_from(&directory, None, false);
+        assert!(theme.warning.is_none());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn invalid_theme_file_reports_error_and_falls_back() {
+        let directory =
+            std::env::temp_dir().join(format!("compare_theme_diagnostics_{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("Nord.toml");
+        fs::write(&path, "[diff]\ndelete_bg = \"€\"").unwrap();
+        let theme = resolve_theme("Nord", true, &ConfigFile::default(), &directory);
+        assert_eq!(theme.iced_theme, Theme::Nord);
+        assert!(theme.warning.unwrap().contains(path.to_str().unwrap()));
+        fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn test_parse_hex_color() {
@@ -615,8 +827,14 @@ mod tests {
 
     #[test]
     fn test_parse_presets() {
-        assert_eq!(parse_preset("CatppuccinMocha"), Some(Theme::CatppuccinMocha));
-        assert_eq!(parse_preset("catppuccin-mocha"), Some(Theme::CatppuccinMocha));
+        assert_eq!(
+            parse_preset("CatppuccinMocha"),
+            Some(Theme::CatppuccinMocha)
+        );
+        assert_eq!(
+            parse_preset("catppuccin-mocha"),
+            Some(Theme::CatppuccinMocha)
+        );
         assert_eq!(parse_preset("dracula"), Some(Theme::Dracula));
         assert_eq!(parse_preset("Nord"), Some(Theme::Nord));
         assert_eq!(parse_preset("solarized-dark"), Some(Theme::SolarizedDark));
@@ -635,7 +853,10 @@ mod tests {
         let customized = apply_diff_overrides(default_diff, &overrides);
         assert_eq!(customized.delete_bg, parse_hex_color("#112233").unwrap());
         assert_eq!(customized.insert_bg, parse_hex_color("#445566").unwrap());
-        assert_eq!(customized.empty_cell_bg, parse_hex_color("#778899").unwrap());
+        assert_eq!(
+            customized.empty_cell_bg,
+            parse_hex_color("#778899").unwrap()
+        );
     }
 
     #[test]
@@ -649,7 +870,10 @@ mod tests {
             insert_line_num = "#38bdf8"
         "##;
         let config: ConfigFile = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.theme, Some(ThemeSetting::Name("CatppuccinMocha".to_string())));
+        assert_eq!(
+            config.theme,
+            Some(ThemeSetting::Name("CatppuccinMocha".to_string()))
+        );
         assert_eq!(config.get_theme_name(true), "CatppuccinMocha");
         assert_eq!(config.get_theme_name(false), "CatppuccinMocha");
         let diff = config.diff.unwrap();
@@ -676,7 +900,8 @@ mod tests {
     #[test]
     fn test_theme_file_override_preset() {
         let _guard = ENV_MUTEX.lock().unwrap();
-        let temp_dir = std::env::temp_dir().join(format!("diffitrust_override_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("diffitrust_override_test_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
 
         let config_path = temp_dir.join("config.toml");
@@ -705,8 +930,14 @@ mod tests {
 
         assert_eq!(app_theme.name, "CatppuccinMocha");
         assert!(app_theme.is_dark);
-        assert_eq!(app_theme.diff.delete_bg, parse_hex_color("#432029").unwrap());
-        assert_eq!(app_theme.diff.insert_bg, parse_hex_color("#1e3a2f").unwrap());
+        assert_eq!(
+            app_theme.diff.delete_bg,
+            parse_hex_color("#432029").unwrap()
+        );
+        assert_eq!(
+            app_theme.diff.insert_bg,
+            parse_hex_color("#1e3a2f").unwrap()
+        );
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
@@ -714,7 +945,8 @@ mod tests {
     #[test]
     fn test_custom_theme_file_loading() {
         let _guard = ENV_MUTEX.lock().unwrap();
-        let temp_dir = std::env::temp_dir().join(format!("diffitrust_custom_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("diffitrust_custom_test_{}", std::process::id()));
         let themes_dir = temp_dir.join("themes");
         let _ = fs::create_dir_all(&themes_dir);
 
@@ -746,9 +978,18 @@ mod tests {
 
         assert_eq!(app_theme.name, "cyan-diff");
         assert!(app_theme.is_dark);
-        assert_eq!(app_theme.diff.delete_bg, parse_hex_color("#3b222e").unwrap());
-        assert_eq!(app_theme.diff.insert_bg, parse_hex_color("#1f3a3a").unwrap());
-        assert_eq!(app_theme.diff.insert_line_num, parse_hex_color("#88c0d0").unwrap());
+        assert_eq!(
+            app_theme.diff.delete_bg,
+            parse_hex_color("#3b222e").unwrap()
+        );
+        assert_eq!(
+            app_theme.diff.insert_bg,
+            parse_hex_color("#1f3a3a").unwrap()
+        );
+        assert_eq!(
+            app_theme.diff.insert_line_num,
+            parse_hex_color("#88c0d0").unwrap()
+        );
 
         let _ = fs::remove_dir_all(&temp_dir);
     }
@@ -804,7 +1045,8 @@ mod tests {
     #[test]
     fn test_load_theme_for_mode() {
         let _guard = ENV_MUTEX.lock().unwrap();
-        let temp_dir = std::env::temp_dir().join(format!("diffitrust_mode_test_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("diffitrust_mode_test_{}", std::process::id()));
         let _ = fs::create_dir_all(&temp_dir);
 
         let config_path = temp_dir.join("config.toml");

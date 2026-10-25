@@ -9,6 +9,10 @@ A fast, lightweight, and modern side-by-side graphical diff tool built in Rust u
 ## Features
 
 - **Side-by-Side Comparison**: Intuitive 2-column view with intra-line character-level diff highlighting.
+- **Change Navigation**: Press `j` for the next changed block and `k` for the previous one, or use the toolbar buttons. Navigation cycles from the last block to the first and from the first to the last; from an unselected comparison, `j` selects the first block and `k` selects the last.
+- **Swap Sides**: Press `s` or click the centered arrows button to swap the two files.
+- **Whitespace**: Show faint space dots and tab arrows on changed lines (default), all lines, or none. Markers are drawn over whitespace without changing text or wrapping.
+- **Visible Line Endings**: Changed rows show `[LF]`, `[CRLF]`, `[CR]`, or `[No final newline]` when their endings differ. Inserted/deleted lines without a final newline are also labeled.
 - **Drag & Drop**: Drop two files together or one after the other onto the window or directly onto the macOS Dock icon.
 - **Dynamic Sizing**: Starts in a compact launcher window (400×400) and automatically maximizes when files are loaded.
 - **Customizable Theming & Colors**:
@@ -17,6 +21,7 @@ A fast, lightweight, and modern side-by-side graphical diff tool built in Rust u
   - Fully customizable diff colors (not always just red and green—cyan/coral, teal/plum, blue/amber, etc.).
 - **Line Wrapping**: Word-wrapped lines by default, with an instant toggle in the bottom toolbar between wrapped lines and independent horizontal scrolling.
 - **Font Sizing & Zoom Shortcuts**:
+  - Configurable font family via `font_family` (defaults to system monospace).
   - Configurable default font size via `font_size` in `config.toml` (defaults to `13.0`).
   - `⌘ +` / `⌘ -` on macOS (`Ctrl +` / `Ctrl -` on Windows and Linux) to grow and shrink the font size of diff content and line numbers.
   - `⌘ 0` on macOS (`Ctrl 0` on Windows and Linux) to reset to the configured default font size.
@@ -33,6 +38,8 @@ Compare looks for `config.toml` in the following prioritized locations:
 4. `~/Library/Application Support/Compare/config.toml` (macOS)
 5. `%APPDATA%\Compare\config.toml` (Windows)
 
+Invalid configuration or theme files show a dismissible message in the app with the file path and error. Compare uses fallback settings for the invalid file. Fix the file and restart Compare to reload it.
+
 ### Quick Setup
 
 To get started with a starter configuration on macOS or Linux:
@@ -41,6 +48,34 @@ To get started with a starter configuration on macOS or Linux:
 mkdir -p ~/.config/compare
 cp config.example.toml ~/.config/compare/config.toml
 ```
+
+---
+
+## Whitespace
+
+The toolbar's **Whitespace** selector offers **Off**, **Changed**, and **All**. Spaces appear as faint dots; tabs have arrows across their expanded width. Trailing spaces are included. Empty placeholder cells have no markers.
+
+Set startup defaults at the top level of `config.toml`:
+
+```toml
+whitespace = "changed" # "off", "changed", or "all"
+tab_width = 4          # 1–16 columns; default 4
+```
+
+Tab stops use the same width in every mode. The display expands tabs to the next stop; file contents and diff results stay unchanged. Use a monospace font for aligned columns. Toolbar changes last for the current session; restart to apply edited config defaults.
+
+---
+
+## Diff Font
+
+Set an installed font family at the top level of `~/.config/compare/config.toml`, before any `[section]` headers:
+
+```toml
+font_family = "Menlo"
+font_size = 13.0
+```
+
+This applies to diff text and line numbers. Restart Compare after changing the setting. Omit `font_family`, leave it blank, or use `"monospace"` to retain the system monospace default. The font must be installed on the machine; unavailable families use the renderer's font fallback. A monospace family keeps columns aligned.
 
 ---
 
@@ -281,6 +316,14 @@ The resulting binary will be at `target/x86_64-unknown-linux-gnu/release/diffitr
 ---
 
 ### 5. Automated Multi-Platform Releases (GitHub Actions)
+
+The workflow runs formatting checks, Clippy, and tests on each platform before packaging. Run the same checks locally with:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked
+```
 
 A GitHub Actions workflow is provided at [`.github/workflows/build.yml`](.github/workflows/build.yml). When you push code or tags to GitHub, it automatically builds and packages:
 - **Windows**: `compare-windows-x86_64.exe`

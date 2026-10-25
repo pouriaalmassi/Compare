@@ -6,6 +6,7 @@ pub mod diff;
 pub mod platform;
 pub mod theme;
 pub mod ui;
+pub mod whitespace;
 
 use app::App;
 use iced::window;
