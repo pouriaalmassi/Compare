@@ -88,6 +88,7 @@ pub enum Message {
     ZoomOut,
     ResetZoom,
     CheckSystemTheme,
+    SystemThemeChanged(bool),
     NextChange,
     PreviousChange,
     DismissConfigWarning,
@@ -257,7 +258,9 @@ impl App {
                 Task::none()
             }
             Message::CheckSystemTheme => {
-                let current_os_dark = theme::is_system_dark();
+                self.update(Message::SystemThemeChanged(theme::is_system_dark()))
+            }
+            Message::SystemThemeChanged(current_os_dark) => {
                 if self.is_os_dark != current_os_dark {
                     self.is_os_dark = current_os_dark;
                     self.theme = theme::load_theme_for_mode(current_os_dark);
@@ -352,13 +355,12 @@ impl App {
         // and Ctrl on Windows/Linux.
         let key_events = keyboard::on_key_press(shortcut);
 
-        let theme_timer = iced::time::every(std::time::Duration::from_millis(500))
-            .map(|_| Message::CheckSystemTheme);
+        let theme_changes = theme::system_theme_changes().map(Message::SystemThemeChanged);
 
         Subscription::batch([
             window_events,
             key_events,
-            theme_timer,
+            theme_changes,
             platform::subscription(),
         ])
     }
@@ -737,5 +739,53 @@ mod tests {
         let _ = app.update(Message::CheckSystemTheme);
         // It should synchronize with the actual OS mode
         assert_eq!(app.is_os_dark, theme::is_system_dark());
+    }
+
+    #[test]
+    fn theme_change_notifications_preserve_the_open_comparison() {
+        let mut app = comparison("before\n", "after\n");
+        let new_mode = !app.is_os_dark;
+        let _ = app.update(Message::SystemThemeChanged(new_mode));
+        assert_eq!(app.is_os_dark, new_mode);
+        assert_eq!(app.file_1.as_ref().unwrap().content, "before\n");
+        assert_eq!(app.file_2.as_ref().unwrap().content, "after\n");
+        assert_eq!(app.diff_data.as_ref().unwrap().differ_count, 1);
+
+        // Repeated notifications must not reload settings or dismiss a warning.
+        app.theme.warning = Some("keep this warning".to_string());
+        let _ = app.update(Message::SystemThemeChanged(new_mode));
+        assert_eq!(app.theme.warning.as_deref(), Some("keep this warning"));
+    }
+
+    /// Measures full view construction on a local large comparison.
+    #[test]
+    #[ignore = "requires COMPARE_PERF_FILE and COMPARE_PERF_OTHER"]
+    fn sample_file_view_rebuild_cost() {
+        use std::time::Instant;
+        let path = std::env::var("COMPARE_PERF_FILE").expect("set COMPARE_PERF_FILE");
+        let source = std::fs::read_to_string(path).unwrap();
+        let other_path = std::env::var("COMPARE_PERF_OTHER").expect("set COMPARE_PERF_OTHER");
+        let other = std::fs::read_to_string(other_path).unwrap();
+        let start = Instant::now();
+        let app = comparison(&source, &other);
+        eprintln!(
+            "Comparison setup: {:.2}ms; {} differing lines, {} change blocks",
+            start.elapsed().as_secs_f64() * 1000.0,
+            app.diff_data.as_ref().unwrap().differ_count,
+            app.change_starts.len(),
+        );
+        let mut times = Vec::new();
+        for _ in 0..10 {
+            let start = Instant::now();
+            drop(std::hint::black_box(app.view()));
+            times.push(start.elapsed().as_secs_f64() * 1000.0);
+        }
+        times.sort_by(f64::total_cmp);
+        eprintln!(
+            "{} rows: view construction + drop median {:.2}ms, max {:.2}ms",
+            app.diff_data.as_ref().unwrap().rows.len(),
+            times[5],
+            times[9]
+        );
     }
 }

@@ -92,7 +92,7 @@ pub fn view_diff<'a>(
             ..Default::default()
         });
 
-    let mut diff_rows_column = column![].spacing(0).width(Length::Fill);
+    let mut diff_rows = Vec::with_capacity(diff.rows.len());
 
     for (index, row_data) in diff.rows.iter().enumerate() {
         let left_cell = render_cell(
@@ -117,7 +117,7 @@ pub fn view_diff<'a>(
         let row_item = row![left_cell, right_cell].spacing(1).width(Length::Fill);
 
         let selected = current_change.and_then(|n| change_starts.get(n)) == Some(&index);
-        diff_rows_column = diff_rows_column.push(
+        diff_rows.push(
             container(row_item)
                 .id(container::Id::new(super::navigation::row_id(index)))
                 .style(move |_| container::Style {
@@ -127,11 +127,12 @@ pub fn view_diff<'a>(
                         ..Default::default()
                     },
                     ..Default::default()
-                }),
+                })
+                .into(),
         );
     }
 
-    let diff_scroll = scrollable(diff_rows_column)
+    let diff_scroll = scrollable(super::diff_rows::DiffRows::new(diff_rows))
         .id(scrollable::Id::new(super::navigation::DIFF_SCROLL_ID))
         .width(Length::Fill)
         .height(Length::Fill);

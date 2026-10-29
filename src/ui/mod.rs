@@ -7,3 +7,5 @@ pub use empty_state::view_empty_state;
 pub mod navigation;
 
 mod diff_text;
+
+mod diff_rows;

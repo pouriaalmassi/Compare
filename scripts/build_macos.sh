@@ -36,9 +36,9 @@ cat << 'PLIST' > "${APP_DIR}/Contents/Info.plist"
     <key>CFBundleIdentifier</key>
     <string>com.compare.app</string>
     <key>CFBundleVersion</key>
-    <string>0.1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.0.0</string>
     <key>CFBundleExecutable</key>
     <string>Compare</string>
     <key>CFBundleIconFile</key>

@@ -571,6 +571,48 @@ fn build_custom_theme(name: String, base_theme: &Theme, palette_cfg: &PaletteCon
     Theme::custom(name, palette)
 }
 
+/// Poll on the subscription executor, emitting only actual changes. Sending an
+/// unchanged value to App::update would rebuild the entire UI in Iced 0.13.
+pub fn system_theme_changes() -> iced::Subscription<bool> {
+    iced::Subscription::run(theme_change_stream)
+}
+
+fn theme_change_stream() -> impl futures::Stream<Item = bool> {
+    use futures::StreamExt;
+    use iced::advanced::subscription::into_recipes;
+
+    // Reuse Iced's executor-specific timer without adding another async runtime.
+    let timer = into_recipes(iced::time::every(std::time::Duration::from_millis(500)))
+        .pop()
+        .expect("the timer has one subscription recipe")
+        .stream(futures::stream::empty().boxed());
+    distinct_theme_changes(timer.map(|_| poll_system_theme()), poll_system_theme())
+}
+
+// Executor threads do not have AppKit's per-event autorelease pool.
+fn poll_system_theme() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        objc::rc::autoreleasepool(is_system_dark)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        is_system_dark()
+    }
+}
+
+fn distinct_theme_changes(
+    source: impl futures::Stream<Item = bool>,
+    mut previous: bool,
+) -> impl futures::Stream<Item = bool> {
+    use futures::StreamExt;
+    source.filter_map(move |current| {
+        let changed = (previous != current).then_some(current);
+        previous = current;
+        futures::future::ready(changed)
+    })
+}
+
 /// Returns true if the operating system is currently in Dark mode.
 pub fn is_system_dark() -> bool {
     #[cfg(target_os = "macos")]
@@ -1099,5 +1141,17 @@ mod tests {
         "#;
         let config_int: ConfigFile = toml::from_str(toml_int).unwrap();
         assert_eq!(config_int.font_size, Some(14.0));
+    }
+
+    #[test]
+    fn theme_subscription_emits_changes_without_periodic_noop_messages() {
+        use futures::{executor::block_on, stream, StreamExt};
+        let values = [false, false, true, true, true, false, false, true];
+        let changes =
+            block_on(distinct_theme_changes(stream::iter(values), false).collect::<Vec<_>>());
+        assert_eq!(changes, vec![true, false, true]);
+        let unchanged =
+            block_on(distinct_theme_changes(stream::iter([true; 100]), true).collect::<Vec<_>>());
+        assert!(unchanged.is_empty());
     }
 }
