@@ -19,6 +19,7 @@ A fast, lightweight, and modern side-by-side graphical diff tool built in Rust u
   - 22 built-in presets (Catppuccin, Nord, Dracula, Solarized, Tokyo Night, Gruvbox, etc.).
   - User-defined theme files (`<name>.toml`) to define new themes or override presets.
   - Fully customizable diff colors (not always just red and green—cyan/coral, teal/plum, blue/amber, etc.).
+- **Minimap**: A miniature overview of both diff panes beside the right scrollbar, with change colors and a viewport highlight. Click or drag to navigate. Enabled by default; set `minimap = false` in `config.toml` and restart to hide it.
 - **Line Wrapping**: Word-wrapped lines by default, with an instant toggle in the bottom toolbar between wrapped lines and independent horizontal scrolling.
 - **Font Sizing & Zoom Shortcuts**:
   - Configurable font family via `font_family` (defaults to system monospace).

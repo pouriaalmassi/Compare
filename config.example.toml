@@ -27,6 +27,9 @@ dark_theme = "Nord"
 # Set to false to disable wrapping and use horizontal scrolling instead.
 wrap_lines = true
 
+# Show a clickable diff minimap beside the right scrollbar (restart to apply).
+minimap = true
+
 # Show space dots and tab arrows: "off", "changed" (default), or "all".
 # Can also be changed with the toolbar Whitespace selector.
 whitespace = "changed"

@@ -30,6 +30,7 @@ pub struct App {
     pub change_starts: Vec<usize>,
     pub current_change: Option<usize>,
     pub wrap_lines: bool,
+    pub minimap: bool,
     pub is_hovering: bool,
     pub is_new_drop_sequence: bool,
     pub status_message: Option<String>,
@@ -58,6 +59,7 @@ impl Default for App {
             change_starts: Vec::new(),
             current_change: None,
             wrap_lines: config.wrap_lines.unwrap_or(true),
+            minimap: config.minimap.unwrap_or(true),
             is_hovering: false,
             is_new_drop_sequence: false,
             status_message: None,
@@ -83,6 +85,7 @@ pub enum Message {
     ClearAll,
     SwapSides,
     ToggleWrapLines(bool),
+    MinimapScroll(f32),
     SetWhitespace(WhitespaceMode),
     ZoomIn,
     ZoomOut,
@@ -245,6 +248,10 @@ impl App {
                 self.wrap_lines = enabled;
                 Task::none()
             }
+            Message::MinimapScroll(offset) => iced::widget::scrollable::snap_to(
+                iced::widget::scrollable::Id::new(crate::ui::navigation::DIFF_SCROLL_ID),
+                iced::widget::scrollable::RelativeOffset { x: 0.0, y: offset },
+            ),
             Message::ZoomIn => {
                 self.font_size = (self.font_size + 1.0).min(MAX_FONT_SIZE);
                 Task::none()
@@ -375,6 +382,7 @@ impl App {
                 file_1_name,
                 file_2_name,
                 self.wrap_lines,
+                self.minimap,
                 self.is_hovering,
                 self.status_message.as_deref(),
                 &self.theme.diff,

@@ -9,20 +9,30 @@ use iced::advanced::{
 };
 use iced::{event, Alignment, Element, Event, Length, Rectangle, Renderer, Size, Theme};
 
+use super::minimap::{self, Minimap};
 use crate::app::Message;
 
 #[derive(Default)]
 struct State {
     bounds: Vec<Rectangle>,
+    minimap: minimap::State,
 }
 
 pub struct DiffRows<'a> {
     rows: Vec<Element<'a, Message>>,
+    minimap: Option<Minimap<'a>>,
 }
 
 impl<'a> DiffRows<'a> {
     pub fn new(rows: Vec<Element<'a, Message>>) -> Self {
-        Self { rows }
+        Self {
+            rows,
+            minimap: None,
+        }
+    }
+    pub fn minimap(mut self, minimap: Option<Minimap<'a>>) -> Self {
+        self.minimap = minimap;
+        self
     }
 }
 
@@ -69,10 +79,16 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
+        let minimap_width = if self.minimap.is_some() {
+            minimap::WIDTH.min(limits.max().width)
+        } else {
+            0.0
+        };
+        let row_limits = limits.shrink(Size::new(minimap_width, 0.0));
         let node = layout::flex::resolve(
             layout::flex::Axis::Vertical,
             renderer,
-            limits,
+            &row_limits,
             Length::Fill,
             Length::Shrink,
             iced::Padding::ZERO,
@@ -81,9 +97,15 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
             &self.rows,
             &mut tree.children,
         );
-        tree.state.downcast_mut::<State>().bounds =
-            node.children().iter().map(layout::Node::bounds).collect();
-        node
+        let state = tree.state.downcast_mut::<State>();
+        state.bounds = node.children().iter().map(layout::Node::bounds).collect();
+        if let Some(minimap) = &self.minimap {
+            minimap.layout(&mut state.minimap, &state.bounds);
+        }
+        layout::Node::with_children(
+            Size::new(node.size().width + minimap_width, node.size().height),
+            vec![node],
+        )
     }
 
     fn operate(
@@ -99,7 +121,7 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
                 .rows
                 .iter()
                 .zip(&mut tree.children)
-                .zip(layout.children())
+                .zip(layout.children().next().unwrap().children())
             {
                 row.as_widget().operate(state, layout, renderer, operation);
             }
@@ -117,8 +139,27 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) -> event::Status {
+        if let Some(minimap) = &self.minimap {
+            if minimap.on_event(
+                &mut tree.state.downcast_mut::<State>().minimap,
+                &event,
+                layout.bounds(),
+                viewport,
+                cursor,
+                shell,
+            ) == event::Status::Captured
+            {
+                return event::Status::Captured;
+            }
+        }
         let range = visible(tree.state.downcast_ref::<State>(), layout, viewport);
-        let layouts = layout.children().skip(range.start).take(range.len());
+        let layouts = layout
+            .children()
+            .next()
+            .unwrap()
+            .children()
+            .skip(range.start)
+            .take(range.len());
         self.rows[range.clone()]
             .iter_mut()
             .zip(&mut tree.children[range])
@@ -146,8 +187,19 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
+        if let Some(minimap) = &self.minimap {
+            if minimap.is_over(layout.bounds(), viewport, cursor) {
+                return mouse::Interaction::Pointer;
+            }
+        }
         let range = visible(tree.state.downcast_ref::<State>(), layout, viewport);
-        let layouts = layout.children().skip(range.start).take(range.len());
+        let layouts = layout
+            .children()
+            .next()
+            .unwrap()
+            .children()
+            .skip(range.start)
+            .take(range.len());
         self.rows[range.clone()]
             .iter()
             .zip(&tree.children[range])
@@ -171,7 +223,13 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
         viewport: &Rectangle,
     ) {
         let range = visible(tree.state.downcast_ref::<State>(), layout, viewport);
-        let layouts = layout.children().skip(range.start).take(range.len());
+        let layouts = layout
+            .children()
+            .next()
+            .unwrap()
+            .children()
+            .skip(range.start)
+            .take(range.len());
         for ((row, state), layout) in self.rows[range.clone()]
             .iter()
             .zip(&tree.children[range])
@@ -179,6 +237,16 @@ impl Widget<Message, Theme, Renderer> for DiffRows<'_> {
         {
             row.as_widget()
                 .draw(state, renderer, theme, style, layout, cursor, viewport);
+        }
+        if let Some(minimap) = &self.minimap {
+            let state = tree.state.downcast_ref::<State>();
+            minimap.draw(
+                &state.minimap,
+                &state.bounds,
+                layout.bounds(),
+                viewport,
+                renderer,
+            );
         }
     }
 }
@@ -225,6 +293,7 @@ mod tests {
         let rows = bounds(&vec![22.2; 30_000]);
         let state = State {
             bounds: rows.clone(),
+            ..Default::default()
         };
         let node = layout::Node::new(Size::new(500.0, 700_000.0));
         let layout = Layout::with_offset(iced::Vector::new(0.0, -400_000.0), &node);

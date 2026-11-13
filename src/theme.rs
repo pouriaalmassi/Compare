@@ -70,6 +70,8 @@ pub struct ConfigFile {
     pub diff_dark: Option<DiffConfig>,
     /// Optional line wrapping setting (defaults to true)
     pub wrap_lines: Option<bool>,
+    /// Show the diff minimap beside the vertical scrollbar (defaults to true).
+    pub minimap: Option<bool>,
     /// Optional font size for diff content and line numbers (defaults to 13.0)
     pub font_size: Option<f32>,
     /// Installed font family for diff text and line numbers; defaults to monospace.
@@ -1126,6 +1128,17 @@ mod tests {
         "#;
         let config: ConfigFile = toml::from_str(toml_str).unwrap();
         assert_eq!(config.wrap_lines, Some(false));
+    }
+
+    #[test]
+    fn minimap_config_accepts_booleans_and_defaults_to_enabled() {
+        let default: ConfigFile = toml::from_str("").unwrap();
+        assert!(default.minimap.unwrap_or(true));
+        for enabled in [true, false] {
+            let config: ConfigFile = toml::from_str(&format!("minimap = {enabled}")).unwrap();
+            assert_eq!(config.minimap, Some(enabled));
+        }
+        assert!(toml::from_str::<ConfigFile>("minimap = \"false\"").is_err());
     }
 
     #[test]

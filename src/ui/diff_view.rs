@@ -17,6 +17,7 @@ pub fn view_diff<'a>(
     file_1_name: Option<&'a str>,
     file_2_name: Option<&'a str>,
     wrap_lines: bool,
+    minimap: bool,
     is_hovering: bool,
     status_message: Option<&'a str>,
     diff_theme: &'a DiffTheme,
@@ -76,6 +77,8 @@ pub fn view_diff<'a>(
     .align_y(Alignment::Center)
     .width(Length::Fill);
 
+    let minimap_width = if minimap { super::minimap::WIDTH } else { 0.0 };
+    let subheader = row![subheader, horizontal_space().width(minimap_width)];
     let subheader_container =
         container(subheader)
             .width(Length::Fill)
@@ -143,7 +146,11 @@ pub fn view_diff<'a>(
         );
     }
 
-    let diff_scroll = scrollable(super::diff_rows::DiffRows::new(diff_rows))
+    let rows =
+        super::diff_rows::DiffRows::new(diff_rows).minimap(minimap.then(|| {
+            super::minimap::Minimap::new(diff, diff_theme, diff_font, font_size, tab_width)
+        }));
+    let diff_scroll = scrollable(rows)
         .id(scrollable::Id::new(super::navigation::DIFF_SCROLL_ID))
         .width(Length::Fill)
         .height(Length::Fill);
@@ -162,6 +169,10 @@ pub fn view_diff<'a>(
     .width(Length::Fill)
     .height(Length::Fill);
 
+    let background_center_line = row![
+        background_center_line,
+        horizontal_space().width(minimap_width)
+    ];
     let diff_area = stack![background_center_line, diff_scroll,]
         .width(Length::Fill)
         .height(Length::Fill);

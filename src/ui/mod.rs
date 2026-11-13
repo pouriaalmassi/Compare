@@ -9,3 +9,5 @@ pub mod navigation;
 mod diff_text;
 
 mod diff_rows;
+
+mod minimap;
