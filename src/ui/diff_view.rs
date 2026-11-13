@@ -1,3 +1,4 @@
+use iced::advanced::text::{Paragraph, Renderer as TextRenderer};
 use iced::widget::{
     button, column, container, horizontal_space, pick_list, row, scrollable, stack, svg, text,
     toggler, tooltip,
@@ -92,6 +93,14 @@ pub fn view_diff<'a>(
             ..Default::default()
         });
 
+    let max_line_number = diff
+        .rows
+        .iter()
+        .flat_map(|row| [row.left.line_number, row.right.line_number])
+        .flatten()
+        .max()
+        .unwrap_or(1);
+    let line_num_width = line_number_width(max_line_number, font_size, diff_font);
     let mut diff_rows = Vec::with_capacity(diff.rows.len());
 
     for (index, row_data) in diff.rows.iter().enumerate() {
@@ -101,6 +110,7 @@ pub fn view_diff<'a>(
             diff_theme,
             font_size,
             diff_font,
+            line_num_width,
             whitespace,
             tab_width,
         );
@@ -110,6 +120,7 @@ pub fn view_diff<'a>(
             diff_theme,
             font_size,
             diff_font,
+            line_num_width,
             whitespace,
             tab_width,
         );
@@ -282,12 +293,41 @@ fn render_top_bar<'a>(
     column![bar_content, divider].height(Length::Shrink).into()
 }
 
+// Reserve the same gutter on every row and pane, including placeholder cells.
+// Measure the widest digit so configured proportional fonts also have enough room.
+fn line_number_width(max_line_number: usize, font_size: f32, font: iced::Font) -> f32 {
+    type TextParagraph = <iced::Renderer as TextRenderer>::Paragraph;
+    let digits = max_line_number.to_string().len();
+    let text_width = ('0'..='9')
+        .map(|digit| {
+            let label = digit.to_string().repeat(digits);
+            TextParagraph::with_text(iced::advanced::text::Text {
+                content: &label,
+                bounds: iced::Size::INFINITY,
+                size: font_size.into(),
+                line_height: text::LineHeight::Relative(1.4),
+                font,
+                horizontal_alignment: alignment::Horizontal::Left,
+                vertical_alignment: alignment::Vertical::Top,
+                shaping: text::Shaping::Basic,
+                wrapping: text::Wrapping::None,
+            })
+            .min_width()
+        })
+        .fold(0.0_f32, f32::max);
+
+    // Include the gutter's 4px left and 10px right padding, plus rounding room.
+    (text_width.ceil() + 14.0).max((font_size * 3.5 + 8.0).max(46.0))
+}
+
+#[allow(clippy::too_many_arguments)]
 fn render_cell<'a>(
     cell: &'a DiffCell,
     wrap_lines: bool,
     diff_theme: &'a DiffTheme,
     font_size: f32,
     diff_font: iced::Font,
+    line_num_width: f32,
     whitespace: WhitespaceMode,
     tab_width: usize,
 ) -> Element<'a, Message> {
@@ -302,8 +342,6 @@ fn render_cell<'a>(
         Some(num) => num.to_string(),
         None => String::new(),
     };
-
-    let line_num_width = (font_size * 3.5 + 8.0).max(46.0);
 
     let line_num_widget = container(
         text(line_num_str)
@@ -419,4 +457,42 @@ fn subtle_button_content<'a>(
             }
         })
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gutter_grows_for_large_line_numbers_and_zoom() {
+        for font in [iced::Font::MONOSPACE, iced::Font::DEFAULT] {
+            for size in [10.0, 13.0, 24.0, 32.0] {
+                let small = line_number_width(99, size, font);
+                let large = line_number_width(999_999, size, font);
+                let largest = line_number_width(usize::MAX, size, font);
+                assert!(large > small);
+                assert!(largest > large);
+                assert!(line_number_width(999_999, size * 2.0, font) > large);
+                // Even if wrapping were enabled, the reserved content width must
+                // fit a complete label on one line after subtracting padding.
+                type TextParagraph = <iced::Renderer as TextRenderer>::Paragraph;
+                for number in [123_456, 888_888, 999_999] {
+                    let label = number.to_string();
+                    let paragraph = TextParagraph::with_text(iced::advanced::text::Text {
+                        content: &label,
+                        bounds: iced::Size::new(large - 14.0, f32::INFINITY),
+                        size: size.into(),
+                        line_height: text::LineHeight::Relative(1.4),
+                        font,
+                        horizontal_alignment: alignment::Horizontal::Left,
+                        vertical_alignment: alignment::Vertical::Top,
+                        shaping: text::Shaping::Basic,
+                        wrapping: text::Wrapping::WordOrGlyph,
+                    });
+                    assert!(paragraph.min_height() <= size * 1.4 + 0.01);
+                    assert!(paragraph.min_width() <= large - 14.0);
+                }
+            }
+        }
+    }
 }
