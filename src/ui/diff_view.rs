@@ -481,7 +481,8 @@ mod tests {
                 let small = line_number_width(99, size, font);
                 let large = line_number_width(999_999, size, font);
                 let largest = line_number_width(usize::MAX, size, font);
-                assert!(large > small);
+                // The minimum gutter can already fit six digits in narrower fonts.
+                assert!(large >= small);
                 assert!(largest > large);
                 assert!(line_number_width(999_999, size * 2.0, font) > large);
                 // Even if wrapping were enabled, the reserved content width must
