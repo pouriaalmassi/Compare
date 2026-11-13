@@ -8,6 +8,7 @@ use crate::theme::{blend, DiffTheme};
 
 pub const WIDTH: f32 = 132.0;
 const SCROLLBAR_SPACE: f32 = 14.0;
+const VIEWPORT_HEIGHT: f32 = 128.0;
 
 pub struct Minimap<'a> {
     diff: &'a DiffData,
@@ -66,9 +67,9 @@ impl Geometry {
 
     fn thumb(self) -> Rectangle {
         let document_height = self.document_height * self.scale;
-        let height = (self.viewport_height * self.scale)
-            .max(8.0)
-            .min(document_height);
+        // Keep the drag target easy to grab at every document size and zoom.
+        // Short previews cap it at their full height so it stays inside the map.
+        let height = VIEWPORT_HEIGHT.min(document_height);
         let fraction = if self.scroll_range() > 0.0 {
             (self.offset / self.scroll_range()).clamp(0.0, 1.0)
         } else {
@@ -392,7 +393,7 @@ mod tests {
         for offset in [0.0, 4500.0, 9000.0] {
             let geometry = geometry(10_000.0, 1000.0, offset);
             let thumb = geometry.thumb();
-            assert_eq!(thumb.height, 100.0);
+            assert_eq!(thumb.height, 128.0);
             let fraction = geometry.seek(thumb.y + thumb.height / 2.0, thumb.height / 2.0);
             assert!((fraction - offset / 9000.0).abs() < 0.0001);
             assert_eq!(geometry.seek(geometry.bounds.y - 1000.0, 0.0), 0.0);
@@ -401,12 +402,33 @@ mod tests {
     }
 
     #[test]
-    fn minimum_thumb_stays_in_bounds_for_very_large_files() {
+    fn fixed_thumb_stays_in_bounds_for_very_large_files() {
         let geometry = geometry(10_000_000.0, 800.0, 9_999_200.0);
         let thumb = geometry.thumb();
-        assert_eq!(thumb.height, 8.0);
+        assert_eq!(thumb.height, 128.0);
         assert!((thumb.y + thumb.height - geometry.bounds.y - geometry.bounds.height).abs() < 0.01);
         assert_eq!(geometry.seek(thumb.y + 4.0, 4.0), 1.0);
+    }
+
+    #[test]
+    fn highlight_height_is_fixed_across_document_and_viewport_sizes() {
+        for height in [10_000.0, 100_000.0, 10_000_000.0] {
+            for viewport_height in [400.0, 800.0, 1200.0] {
+                let geometry = geometry(height, viewport_height, 0.0);
+                assert_eq!(geometry.thumb().height, 128.0);
+            }
+        }
+    }
+
+    #[test]
+    fn highlight_fits_short_previews_and_small_windows() {
+        for (height, viewport_height) in [(25.0, 800.0), (10_000.0, 80.0)] {
+            let geometry = geometry(height, viewport_height, 0.0);
+            let thumb = geometry.thumb();
+            assert!(thumb.height <= 128.0);
+            assert!(thumb.height <= geometry.bounds.height);
+            assert!(thumb.y + thumb.height <= geometry.bounds.y + geometry.bounds.height);
+        }
     }
 
     #[test]
